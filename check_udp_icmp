@@ -1,0 +1,82 @@
+#!/usr/bin/perl -w
+#
+#   Nagios plugin to check if a UDP port connection attempt returns an ICMP
+#   message or not.
+#
+#   The script will return OK if a ICMP message is being received and
+#   CRITICAL if no ICMP response arrives after 10 seconds.
+#
+#   Copyright (C) 2013 LocaNet oHG
+#   Author: Henning Holtschneider <henning@loca.net>
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 2 of the License.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+use Nagios::Plugin;
+use Nagios::Plugin::Getopt;
+use IO::Select;
+use IO::Socket::INET;
+
+$np = Nagios::Plugin->new(
+	usage => "Usage: %s [-H <host>] [-p <port>]",
+	version => '1.0.0'
+	);
+
+$na = Nagios::Plugin::Getopt->new(
+	usage => "Usage: %s [-H <host>] [-p <port>]",
+	version => '0.01'
+	);
+
+$na->arg(
+	spec => 'hostname|H=s',
+	help => 'Host name or IP address',
+	required => 1
+	);
+
+$na->arg(
+	spec => 'port|p=i',
+	help => 'Port number',
+	required => 1
+	);
+
+$na->getopts;
+
+# Time to wait for the ICMP packet
+my $icmp_timeout=10;
+
+# create ICMP socket
+$icmp_sock = new IO::Socket::INET(Proto => 'icmp') or $np->nagios_exit(UNKNOWN, "Unable to listen for ICMP packets.");
+$read_set = new IO::Select() or $np->nagios_exit(UNKNOWN, "Unable to poll for replies.");
+$read_set->add($icmp_sock);
+
+# send the probe packet
+my $sock = new IO::Socket::INET(PeerAddr => $na->get('hostname'), PeerPort => $na->get('port'), Proto=>'udp') or $np->nagios_exit(UNKNOWN, "Unable to initialize send socket.");
+$sock->send("hello");
+close($sock);
+
+# Wait for incoming ICMP packets
+my $icmp_received = 0;
+($new_readable) = IO::Select->select($read_set, undef, undef, $icmp_timeout);
+foreach $socket (@$new_readable) {
+	if ($socket == $icmp_sock) {
+		my $buffer;
+		$icmp_received = 1;
+		$icmp_sock->recv($buffer,50,0);
+	}
+}
+close($icmp_sock);
+ 
+if ($icmp_received == 1) {
+	$np->nagios_exit(OK, "Received ICMP reply after sending to port " . $na->get('port'));
+}
+
+$np->nagios_exit(CRITICAL, "No ICMP reply after sending to port " . $na->get('port'));
