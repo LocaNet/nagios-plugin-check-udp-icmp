@@ -28,12 +28,12 @@ use IO::Socket::INET;
 
 $np = Nagios::Plugin->new(
 	usage => "Usage: %s [-H <host>] [-p <port>]",
-	version => '1.0.0'
+	version => '1.0.1'
 	);
 
 $na = Nagios::Plugin::Getopt->new(
 	usage => "Usage: %s [-H <host>] [-p <port>]",
-	version => '0.01'
+	version => '1.0.1'
 	);
 
 $na->arg(
