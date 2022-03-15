@@ -18,4 +18,4 @@ Usage:
 
 Requirements:
 
-	The script requires the Nagios::Plugin Perl module.
+	The script requires the Monitoring::Plugin Perl module.
